@@ -1,0 +1,79 @@
+{
+  "created_at": "2026-01-05T10:40:46.796643Z",
+  "params": {
+    "chunk_size": 1200,
+    "overlap": 200
+  },
+  "stats": {
+    "mds": 12,
+    "chunks": 52
+  },
+  "inputs": [
+    {
+      "path": "data/mds\\course_COMP7103A_DataMining_2025-26S1.md",
+      "chars": 3588,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7103B_DataMining_2025-26S1.md",
+      "chars": 3861,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7103C_DataMining_2025-26S1.md",
+      "chars": 3832,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7103D_DataMining_2025-26S2.md",
+      "chars": 3280,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7104A_AdvancedDatabaseSystems_2025-26S1.md",
+      "chars": 5127,
+      "chunks": 5
+    },
+    {
+      "path": "data/mds\\course_COMP7106A_BigDataManagement_2025-26S2.md",
+      "chars": 3716,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7106B_BigDataManagement_2025-26S2.md",
+      "chars": 3716,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7107A_ManagementOfComplexDataTypes_2025-26S1.md",
+      "chars": 4749,
+      "chunks": 5
+    },
+    {
+      "path": "data/mds\\course_COMP7107B_ManagementOfComplexDataTypes_2025-26S1.md",
+      "chars": 4758,
+      "chunks": 5
+    },
+    {
+      "path": "data/mds\\course_COMP7404A_ComputationalIntelligenceAndMachineLearning_2025-26S1.md",
+      "chars": 4252,
+      "chunks": 5
+    },
+    {
+      "path": "data/mds\\course_COMP7404B_ComputationalIntelligenceAndMachineLearning_2025-26S2.md",
+      "chars": 3364,
+      "chunks": 4
+    },
+    {
+      "path": "data/mds\\course_COMP7404C_ComputationalIntelligenceAndMachineLearning_2025-26S2.md",
+      "chars": 3217,
+      "chunks": 4
+    }
+  ],
+  "output": {
+    "corpus_jsonl": "data/corpus/corpus.jsonl"
+  },
+  "log": {
+    "run_jsonl": "logs/run_17cbc00a2b5b4b02992fd4c74d4393df.jsonl"
+  }
+}
