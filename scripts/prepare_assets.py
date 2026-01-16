@@ -26,35 +26,54 @@ def configure_hf_env(project_root: Path) -> Path:
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     return models_dir
 
-def prepare_assets() -> None:
-    project_root = Path(__file__).resolve().parents[1]
-    configure_hf_env(project_root)
+def configure_hf_cache(project_root: Path) -> Path:
+    """
+    Configure HuggingFace cache folders under project directory.
+    Must be called before importing transformers/sentence_transformers.
+    """
+    models_dir = project_root / "data" / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
 
-    # Import after env vars are set
+    os.environ.setdefault("HF_HOME", str(models_dir))
+    os.environ.setdefault("TRANSFORMERS_CACHE", str(models_dir))
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    return models_dir
+
+def prepare_assets() -> None:
+    """
+    Prepare all heavy assets on disk and warm up heavy models once.
+
+    This function is safe to call multiple times.
+    It will only build/load when assets are missing.
+    """
+    project_root = Path(__file__).resolve().parents[1]
+    configure_hf_cache(project_root)
+    # Optional: silence HF progress bars if desired
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
+    # Imports must happen after env vars are set
     from rag.config import RagConfig
     from rag.pipeline.stores import load_bm25_store, load_semantic_store
     from scripts.build_corpus_from_mds import main as build_corpus_main
 
     cfg = RagConfig()
 
-    # 1) Ensure corpus exists
+    # Build corpus if missing
     corpus_path = Path(cfg.corpus_jsonl)
     if not corpus_path.exists():
         build_corpus_main()
 
-    # 2) Ensure BM25 exists (does not require HF)
+    # Build/load BM25 and semantic stores (they build indexes if missing)
     load_bm25_store(cfg)
+    load_semantic_store(cfg)
 
-    # 3) Ensure semantic index exists (requires HF model download at least once)
-    try:
-        load_semantic_store(cfg)
-    except Exception as e:
-        # Do not fail the whole preparation; allow BM25-only mode temporarily.
-        print("[prepare_assets] Semantic store preparation failed.")
-        print("Reason:", repr(e))
-        print("You can still run BM25-only. Fix network/HF_ENDPOINT and rerun prepare_assets later.")
-
-    print("prepare_assets done.")
+    # Warm up ColBERT reranker model if enabled (uses local cache_dir set above)
+    if getattr(cfg, "use_colbert_rerank", False):
+        from rag.rerank.colbert_rerank import _load_model_and_tokenizer
+        _load_model_and_tokenizer(getattr(cfg, "colbert_model_name", "distilbert-base-uncased"))
 
 if __name__ == "__main__":
     prepare_assets()
+    print("Assets prepared successfully.")

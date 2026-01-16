@@ -1,0 +1,45 @@
+{
+  "model_out": "rag/models/learned_fusion_lr.joblib",
+  "feature_names": [
+    "bm25_score",
+    "bm25_rank",
+    "bm25_present",
+    "bm25_rrf",
+    "semantic_score",
+    "semantic_rank",
+    "semantic_present",
+    "semantic_rrf",
+    "best_rank",
+    "best_rrf"
+  ],
+  "trained_at": "2026-01-11T15:08:50.098352+00:00",
+  "metrics": {
+    "train_size": 1050,
+    "test_size": 392,
+    "pos_rate_train": 0.14285714285714285,
+    "pos_rate_test": 0.14285714285714285,
+    "roc_auc": 0.5100712159863945,
+    "pr_auc": 0.33716865592464396,
+    "accuracy": 0.7295918367346939,
+    "f1": 0.2535211267605634,
+    "log_loss": 0.6173532903160953,
+    "confusion_matrix": [
+      [
+        268,
+        68
+      ],
+      [
+        38,
+        18
+      ]
+    ],
+    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.88      0.80      0.83       336\n           1       0.21      0.32      0.25        56\n\n    accuracy                           0.73       392\n   macro avg       0.54      0.56      0.54       392\nweighted avg       0.78      0.73      0.75       392\n"
+  },
+  "params": {
+    "C": 1.0,
+    "max_iter": 2000,
+    "seed": 7
+  },
+  "train_path": "data/learned_fusion\\train.jsonl",
+  "test_path": "data/learned_fusion\\test.jsonl"
+}

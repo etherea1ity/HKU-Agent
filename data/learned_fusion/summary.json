@@ -1,0 +1,22 @@
+{
+  "out_dir": "data/learned_fusion",
+  "train_path": "data/learned_fusion\\train.jsonl",
+  "test_path": "data/learned_fusion\\test.jsonl",
+  "seed": 7,
+  "bm25_k": 50,
+  "sem_k": 50,
+  "neg_per_pos": 6,
+  "test_doc_ratio": 0.25,
+  "test_docs": [
+    "2d3ed0c706d62215",
+    "9c3e4fd85fcb7dbe",
+    "e837ccad9e72e14c"
+  ],
+  "counts": {
+    "train": 1050,
+    "test": 392,
+    "queries": 48,
+    "skipped_no_pos": 0,
+    "skipped_no_code": 0
+  }
+}

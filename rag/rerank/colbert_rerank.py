@@ -2,24 +2,65 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
+from huggingface_hub import snapshot_download
 
 
 # Avoid Transformers trying to import TF/Keras paths
 os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 
 
+def _cache_dir() -> str:
+    """Resolve HF cache dir (prefer project-local)."""
+    for key in ("HF_HOME", "TRANSFORMERS_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        v = os.getenv(key)
+        if v:
+            return v
+    return str(Path(__file__).resolve().parents[2] / "data" / "models")
+
+
 @lru_cache(maxsize=2)
 def _load_model_and_tokenizer(model_name: str):
-    """
-    Cached loader so we don't reload model every query.
-    """
-    tok = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
+    """Cached loader; prefer local cache and avoid re-downloading if present."""
+    cache_dir = _cache_dir()
+    local_only = os.getenv("HF_HUB_OFFLINE") == "1" or os.getenv("HF_LOCAL_ONLY") == "1"
+
+    # Ensure snapshot exists in cache; fallback to online if allowed
+    allow_patterns = [
+        "config.json",
+        "pytorch_model.bin",
+        "*.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "vocab.txt",
+        "merges.txt",
+        "special_tokens_map.json",
+    ]
+    try:
+        local_path = snapshot_download(
+            repo_id=model_name,
+            cache_dir=cache_dir,
+            local_files_only=local_only,
+            allow_patterns=allow_patterns,
+        )
+    except Exception:
+        if local_only:
+            raise
+        # Try online download into cache_dir
+        local_path = snapshot_download(
+            repo_id=model_name,
+            cache_dir=cache_dir,
+            local_files_only=False,
+            allow_patterns=allow_patterns,
+        )
+
+    tok = AutoTokenizer.from_pretrained(local_path, cache_dir=cache_dir, local_files_only=True)
+    model = AutoModel.from_pretrained(local_path, cache_dir=cache_dir, local_files_only=True)
     model.eval()
     return tok, model
 

@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+.env
+
+logs/
+
+# Local artifacts
+index/
+data/avatar/memory_bank/
+data/avatar/memory_bank_smoke/

@@ -4,101 +4,70 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from openai import OpenAI
 
-
 @dataclass
 class LLMConfig:
-    api_key_env: str = "sk-4c00b82305614b50a3d5d5c68b815376"
+    # Read API key from this env var name
+    api_key_env: str = "DASHSCOPE_API_KEY"
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model: str = "deepseek-v3.2"
-    enable_thinking: bool = False
     timeout: float = 120.0
 
 
 class LLMClient:
     def __init__(self, cfg: LLMConfig):
-        # api_key = os.getenv(cfg.api_key_env)
-        # if not api_key:
-        #     raise RuntimeError(
-        #         f"Missing API key env var: {cfg.api_key_env}. "
-        #         f"Set it in PowerShell: $env:{cfg.api_key_env}='...'"
-        #     )
-
         self.cfg = cfg
-        self.client = OpenAI(api_key="sk-4c00b82305614b50a3d5d5c68b815376", base_url=cfg.base_url)
+        # Prefer env var. If cfg.api_key_env looks like a key itself, allow it as a fallback.
+        api_key = os.getenv(cfg.api_key_env)
+        if not api_key and (cfg.api_key_env or "").startswith("sk-"):
+            api_key = cfg.api_key_env
+        if not api_key:
+            raise RuntimeError(
+                f"Missing API key env var: {cfg.api_key_env}. "
+                f"Set it before starting the server."
+            )
 
-    def chat(
-        self,
-        messages: List[Dict[str, str]],
-        *,
-        enable_thinking: Optional[bool] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        self.client = OpenAI(api_key=api_key, base_url=cfg.base_url)
+
+    def chat(self, messages: List[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
         """
-        Non-streaming chat completion.
-        Returns (answer_text, usage_dict).
+        Non-stream chat call. Returns (text, usage_dict).
         """
-        if enable_thinking is None:
-            enable_thinking = self.cfg.enable_thinking
-
-        eb = dict(extra_body or {})
-        eb.setdefault("enable_thinking", bool(enable_thinking))
-
         resp = self.client.chat.completions.create(
             model=self.cfg.model,
             messages=messages,
-            stream=False,
-            extra_body=eb,
             timeout=self.cfg.timeout,
         )
-
-        text = resp.choices[0].message.content or ""
-        usage = resp.usage.model_dump() if resp.usage else {}
-        return text, usage
+        text = (resp.choices[0].message.content or "").strip()
+        usage = getattr(resp, "usage", None)
+        return text, (usage.model_dump() if usage else {})
 
     def chat_stream(
         self,
-        messages: List[Dict[str, str]],
-        *,
-        enable_thinking: Optional[bool] = None,
+        messages: List[Dict[str, Any]],
         extra_body: Optional[Dict[str, Any]] = None,
     ) -> Iterable[Dict[str, Any]]:
         """
-        Streaming chat completion generator.
-        Yields dict events:
-          {"type": "reasoning", "text": "..."}
-          {"type": "content", "text": "..."}
-          {"type": "usage", "usage": {...}}
+        Streaming chat call. Yields events:
+          - {"type": "delta", "text": "..."}
+          - {"type": "usage", "usage": {...}}  (when available)
+          - {"type": "done"}
         """
-        if enable_thinking is None:
-            enable_thinking = self.cfg.enable_thinking
-
-        eb = dict(extra_body or {})
-        eb.setdefault("enable_thinking", bool(enable_thinking))
-
         stream = self.client.chat.completions.create(
             model=self.cfg.model,
             messages=messages,
             stream=True,
             stream_options={"include_usage": True},
-            extra_body=eb,
+            extra_body=extra_body or {},
             timeout=self.cfg.timeout,
         )
 
         for chunk in stream:
-            # usage frame
-            if not getattr(chunk, "choices", None):
-                usage = chunk.usage.model_dump() if getattr(chunk, "usage", None) else {}
-                yield {"type": "usage", "usage": usage}
-                continue
+            # Delta tokens
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                yield {"type": "delta", "text": chunk.choices[0].delta.content}
 
-            delta = chunk.choices[0].delta
+            # Usage (some providers send it on the final chunk)
+            if getattr(chunk, "usage", None):
+                yield {"type": "usage", "usage": chunk.usage.model_dump()}
 
-            # reasoning_content (DashScope compatible fields)
-            rc = getattr(delta, "reasoning_content", None)
-            if rc:
-                yield {"type": "reasoning", "text": rc}
-
-            # normal content
-            c = getattr(delta, "content", None)
-            if c:
-                yield {"type": "content", "text": c}
+        yield {"type": "done"}

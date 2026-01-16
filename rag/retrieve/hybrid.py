@@ -65,6 +65,7 @@ def rrf_fuse(
         # Best-effort: keep a representative text/metadata from whichever run provides it first
         rep_text = None
         rep_meta = None
+        rep_doc_id = None
 
         for run_name, rm in rank_maps.items():
             if cid not in rm:
@@ -81,11 +82,15 @@ def rrf_fuse(
                 rep_text = payload.get("text")
             if rep_meta is None and "metadata" in payload:
                 rep_meta = payload.get("metadata")
+            if rep_doc_id is None and "doc_id" in payload:
+                rep_doc_id = payload.get("doc_id")
 
         if rep_text is not None:
             merged["text"] = rep_text
         if rep_meta is not None:
             merged["metadata"] = rep_meta
+        if rep_doc_id is not None:
+            merged["doc_id"] = rep_doc_id
 
         merged["fused_score"] = fused_score
         merged["ranks"] = ranks
@@ -116,6 +121,8 @@ def hybrid_search(
     rrf_k: int = 60,
     weights: Optional[Dict[str, float]] = None,
     sem_ef_search: Optional[int] = None,
+    fusion_mode: str = "rrf",
+    lr_model_path: str = "rag/models/learned_fusion_lr.joblib",
 ) -> List[Dict[str, Any]]:
     """
     Convenience wrapper: run bm25 + semantic, then fuse with RRF.
@@ -127,12 +134,49 @@ def hybrid_search(
     bm25_hits = bm25_module.search(bm25_store, query, k=bm25_k)
     sem_hits = semantic_module.search(semantic_store, query, k=sem_k, ef_search=sem_ef_search)
 
-    fused = rrf_fuse(
-        runs={"bm25": bm25_hits, "semantic": sem_hits},
-        rrf_k=rrf_k,
-        weights=weights,
-        top_k=top_k,
-    )
+    fusion_mode = (fusion_mode or "rrf").lower().strip()
+
+    if fusion_mode == "lr":
+        try:
+            from rag.retrieve.learned_fusion import fuse_with_lr
+
+            fused = fuse_with_lr(
+                query=query,
+                bm25_hits=bm25_hits,
+                sem_hits=sem_hits,
+                model_path=lr_model_path,
+                top_k=top_k,
+            )
+
+            # Compatibility: downstream code expects fused_score + ranks.
+            for h in fused:
+                if "fused_score" not in h:
+                    h["fused_score"] = float(h.get("lf_score", 0.0))
+                feats = h.get("features") or {}
+                h.setdefault(
+                    "ranks",
+                    {
+                        "bm25": int(feats.get("bm25_rank", 9999.0)),
+                        "semantic": int(feats.get("semantic_rank", 9999.0)),
+                    },
+                )
+                h["fusion"] = "lr"
+
+        except Exception:
+            # Safety fallback: if model missing or load fails, use RRF.
+            fused = rrf_fuse(
+                runs={"bm25": bm25_hits, "semantic": sem_hits},
+                rrf_k=rrf_k,
+                weights=weights,
+                top_k=top_k,
+            )
+    else:
+        fused = rrf_fuse(
+            runs={"bm25": bm25_hits, "semantic": sem_hits},
+            rrf_k=rrf_k,
+            weights=weights,
+            top_k=top_k,
+        )
 
     # Optional: attach raw per-run top lists for debugging
     # (comment out if you want a cleaner output)

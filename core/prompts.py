@@ -1,6 +1,14 @@
 from typing import Dict, List
 
 
+# Identity string for the agent. Keep concise so it can be inlined into system prompts.
+AGENT_IDENTITY = (
+    "You are HKU-Agent, primarily helping with HKU Computer Science postgraduate "
+    "courses. You can also use external tools (mcp.* web search / web parser) to "
+    "answer general factual or up-to-date questions beyond the local course corpus."
+)
+
+
 def make_rewrite_messages(user_question: str) -> List[Dict[str, str]]:
     """
     Rewrite user question into a retrieval-friendly query.
@@ -30,6 +38,9 @@ def make_answer_messages(user_question: str, context: str) -> List[Dict[str, str
         "Answer the user's question using ONLY the provided context.\n"
         "If the context is insufficient, say you don't know.\n"
         "Cite evidence using [1], [2], ... matching the context blocks.\n"
+        "If a context block comes from the web, briefly name the site or source "
+        "(e.g., 'HKU site', 'arXiv', 'Wikipedia') without printing the full URL; "
+        "hyperlinks are optional.\n"
     )
     user = (
         f"[Question]\n{user_question.strip()}\n\n"
